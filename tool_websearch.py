@@ -2,7 +2,7 @@ import requests
 
 def search_web(query: str) -> str:
     API_KEY = "your-api-key"
-    SEARCH_URL = "https://api.serper.dev/search"  # Or use another source
+    SEARCH_URL = "https://api.serper.dev/search" 
 
     headers = {
         "X-API-KEY": API_KEY,
