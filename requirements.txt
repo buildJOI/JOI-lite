@@ -1,6 +1,0 @@
-# BUG FIX: Original requirements.txt was saved in UTF-16 encoding (had null bytes)
-# which causes `pip install -r requirements.txt` to fail silently or error out.
-# Re-saved in UTF-8.
-requests>=2.31.0
-python-dotenv>=1.0.1
-flask>=2.3.2
