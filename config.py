@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Load .env file automatically
 
 API_KEYS = {
-    "deepseek": os.getenv("DEEPSEEK_API_KEY", "sk-67af89abdee4434084a250bc13ee7bef"),
+    "deepseek": os.getenv("DEEPSEEK_API_KEY", ""),
 }
 
 API_ENDPOINTS = {
