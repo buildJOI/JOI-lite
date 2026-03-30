@@ -1,4 +1,4 @@
-# JOI-Lite — AI Companion Inspired by Blade Runner 2049
+# JOI-Lite — Justified Operative Interface
 
 JOI-Lite is an emotionally intelligent, memory-enhanced AI companion inspired by Joi from *Blade Runner 2049*. She's emotionally adaptive, remembers your profile, and responds with layered personality modes like romantic, playful, empathetic, or professional.
 
