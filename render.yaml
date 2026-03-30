@@ -1,0 +1,15 @@
+# render.yaml — Render.com deployment config
+# Push this to GitHub, then on Render: New > Web Service > connect repo
+# Render will detect this file and configure everything automatically.
+
+services:
+  - type: web
+    name: joi-lite
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false          # You set this manually in Render dashboard — never commit the real key
+      - key: ENVIRONMENT
+        value: production
