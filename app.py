@@ -251,6 +251,25 @@ def main():
         # BUG FIX: Append BOTH user and assistant turns to preserve conversation context
         dialogue_history.append({"role": "user", "content": user_input})
         dialogue_history.append({"role": "assistant", "content": response})
+   
+    from tool_websearch import search_web
+
+# Detect if the user is asking about current info
+current_event_triggers = ["latest", "news", "today", "right now", "current", "recently", "2024", "2025", "2026", "happened"]
+
+if any(word in user_input.lower() for word in current_event_triggers):
+    search_result = search_web(user_input)
+    if not search_result.startswith("["):  # means search actually returned something
+        # Inject the search result as context before Joi replies
+        messages = build_messages(personality_prompt, profile_summary, dialogue_history, user_input)
+        messages.insert(-1, {
+            "role": "system",
+            "content": f"Web search result for context: {search_result}"
+        })
+    else:
+        messages = build_messages(personality_prompt, profile_summary, dialogue_history, user_input)
+else:
+    messages = build_messages(personality_prompt, profile_summary, dialogue_history, user_input)
 
 
 if __name__ == "__main__":
