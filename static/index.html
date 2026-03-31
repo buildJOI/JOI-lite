@@ -861,3 +861,120 @@ showSection('hero');
 </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JOI Lite</title>
+    <style>
+        /* --- KEEP YOUR EXISTING STYLES --- */
+        body { font-family: sans-serif; background: #0f0f1f; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .chat-container { width: 100%; max-width: 500px; background: #1a1a2e; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+        .messages { height: 300px; overflow-y: auto; border: 1px solid #333; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .message { margin: 10px 0; padding: 8px 12px; border-radius: 15px; max-width: 80%; }
+        .user { background: #00d4ff; color: #000; align-self: flex-end; margin-left: auto; }
+        .assistant { background: #7b2cbf; color: #fff; align-self: flex-start; }
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; border-radius: 5px; border: none; background: #333; color: #fff; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; background: #00d4ff; color: #000; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00a8cc; }
+        
+        /* --- NEW VOICE STYLES --- */
+        .voice-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 10px; background: #252540; border-radius: 5px; }
+        .voice-toggle { background: #7b2cbf; color: white; }
+        .voice-toggle.active { background: #00d4aa; }
+        .voice-status { font-size: 0.8em; color: #aaa; }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <h2 style="text-align:center; color:#00d4ff;">JOI Lite</h2>
+    
+    <!-- Voice Controls -->
+    <div class="voice-controls">
+        <button id="voiceToggle" class="voice-toggle">🔇 Voice Off</button>
+        <span id="voiceStatus" class="voice-status"></span>
+    </div>
+
+    <div class="messages" id="messages"></div>
+    
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Speak to JOI..." onkeypress="if(event.key==='Enter') sendMessage()">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    let joiVoiceEnabled = false;
+    const messagesDiv = document.getElementById('messages');
+    const userInput = document.getElementById('userInput');
+    const voiceToggle = document.getElementById('voiceToggle');
+    const voiceStatus = document.getElementById('voiceStatus');
+
+    // Voice Toggle Logic
+    voiceToggle.addEventListener('click', () => {
+        joiVoiceEnabled = !joiVoiceEnabled;
+        voiceToggle.textContent = joiVoiceEnabled ? '🔊 Voice On' : '🔇 Voice Off';
+        voiceToggle.classList.toggle('active');
+        voiceStatus.textContent = joiVoiceEnabled ? 'JOI will speak' : '';
+    });
+
+    function displayMessage(role, text) {
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        div.textContent = text;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function playAudio(base64Audio) {
+        if (!base64Audio) return;
+        const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+        voiceStatus.textContent = '🔊 JOI is speaking...';
+        audio.play().then(() => {
+            audio.onended = () => { voiceStatus.textContent = joiVoiceEnabled ? '✨ Ready' : ''; };
+        }).catch(err => {
+            console.error("Audio play error:", err);
+            voiceStatus.textContent = '⚠️ Audio error';
+        });
+    }
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        displayMessage('user', text);
+        userInput.value = '';
+
+        const endpoint = joiVoiceEnabled ? '/chat/voice' : '/chat';
+        voiceStatus.textContent = '✨ JOI is thinking...';
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'deepseek', // Or your default model
+                    messages: [{ role: 'user', content: text }],
+                    mood: 'default'
+                })
+            });
+            const data = await response.json();
+            displayMessage('assistant', data.reply);
+            
+            if (joiVoiceEnabled && data.audio) {
+                playAudio(data.audio);
+            } else {
+                voiceStatus.textContent = joiVoiceEnabled ? '✨ Ready' : '';
+            }
+        } catch (error) {
+            displayMessage('assistant', "Connection error.");
+            voiceStatus.textContent = '❌ Error';
+        }
+    }
+</script>
+
+</body>
+</html>
