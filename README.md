@@ -105,8 +105,9 @@ cd joi-lite
 ### Environment Setup
 
 ```id="env001"
-ELEVENLABS_API_KEY=your_api_key
-OPENAI_API_KEY=your_api_key
+ELEVENLABS_API_KEY="your api key"
+GROQ_API_KEY="your api key"
+SERPER_API_KEY="your api key"
 ```
 
 ### Install Dependencies
