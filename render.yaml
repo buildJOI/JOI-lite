@@ -1,15 +1,15 @@
-# render.yaml — Render.com deployment config
-# Push this to GitHub, then on Render: New > Web Service > connect repo
-# Render will detect this file and configure everything automatically.
-
 services:
   - type: web
     name: joi-lite
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python server.py
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DEEPSEEK_API_KEY
-        sync: false          # You set this manually in Render dashboard — never commit the real key
-      - key: ENVIRONMENT
-        value: production
+        sync: false          # set in Render dashboard — never hardcode
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://your-render-app.onrender.com  # update after first deploy

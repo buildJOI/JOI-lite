@@ -1,54 +1,45 @@
-"""
-tool_websearch.py — Joi-lite web search tool
-
-BUG FIXES:
-- API key was hardcoded as "your-api-key" placeholder — loaded from .env now
-- No timeout on request — added
-- results["organic"] raises KeyError if key absent — fixed with .get()
-- Returns top 3 results instead of 1 for richer context
-"""
-import os
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
-SEARCH_URL = "https://api.serper.dev/search"
+import httpx
+from config import SERPER_API_KEY
 
 
-def search_web(query: str, num_results: int = 3) -> str:
+async def web_search(query: str, num_results: int = 5) -> str:
+    """
+    Perform a live web search via Serper API.
+    Returns a formatted string summary, or a graceful message if unavailable.
+
+    Fix: uses httpx.AsyncClient — no blocking calls inside async context.
+    """
     if not SERPER_API_KEY:
-        return "[Web search unavailable: SERPER_API_KEY not set in .env]"
+        return "[Web search unavailable — SERPER_API_KEY not set]"
 
     headers = {
         "X-API-KEY": SERPER_API_KEY,
         "Content-Type": "application/json",
     }
-    data = {"q": query, "num": num_results}
+    payload = {"q": query, "num": num_results}
 
     try:
-        response = requests.post(SEARCH_URL, headers=headers, json=data, timeout=10)
-    except requests.exceptions.Timeout:
-        return "[Web search timed out]"
-    except requests.exceptions.ConnectionError:
-        return "[Web search failed: no internet connection]"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "https://google.serper.dev/search",
+                json=payload,
+                headers=headers,
+            )
+            response.raise_for_status()
+            data = response.json()
 
-    if response.status_code != 200:
-        return f"[Search failed: HTTP {response.status_code}]"
+        results = data.get("organic", [])
+        if not results:
+            return "[No search results found]"
 
-    results = response.json()
-    organic = results.get("organic", [])  # BUG FIX: was results["organic"] — KeyError if absent
+        lines = [f"🔍 Web results for: {query}\n"]
+        for i, r in enumerate(results[:num_results], 1):
+            title = r.get("title", "No title")
+            snippet = r.get("snippet", "")
+            link = r.get("link", "")
+            lines.append(f"{i}. **{title}**\n   {snippet}\n   {link}\n")
 
-    if not organic:
-        return "No relevant results found."
+        return "\n".join(lines)
 
-    # BUG FIX: Return top N results instead of just 1
-    snippets = []
-    for item in organic[:num_results]:
-        title = item.get("title", "No title")
-        snippet = item.get("snippet", "No snippet")
-        link = item.get("link", "")
-        snippets.append(f"• {title}: {snippet} ({link})")
-
-    return "\n".join(snippets)
+    except Exception as e:
+        return f"[Search error: {e}]"
