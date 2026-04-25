@@ -1,121 +1,167 @@
-# server.py
+import json
 import os
-import asyncio
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
-from typing import List, Optional
-from model_handler import query_model  # Ensure this matches your existing import
-from voice_handler import generate_joi_audio  # NEW IMPORT
 
-app = FastAPI()
+from config import ALL_MOODS, DEFAULT_MOOD
+from model_handler import get_joi_response
+from tool_websearch import web_search
+from voice_handler import generate_joi_audio
 
-# CORS Settings (Allow Render & Localhost)
+app = FastAPI(title="JOI-lite API")
+
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:8000",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- YOUR EXISTING MODELS & CONFIG ---
-class Message(BaseModel):
-    role: str
-    content: str
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+PROFILE_PATH = Path(__file__).parent / "user_profile.json"
+
+
+def load_profile() -> dict:
+    if PROFILE_PATH.exists():
+        try:
+            return json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {"memories": [], "name": ""}
+
+
+def save_profile(profile: dict) -> None:
+    PROFILE_PATH.write_text(
+        json.dumps(profile, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+_sessions: dict[str, list[dict]] = {}
+
 
 class ChatRequest(BaseModel):
-    model: str
-    messages: List[Message]
-    mood: Optional[str] = "default"
-    profile: Optional[dict] = None
+    message: str
+    mood: str = DEFAULT_MOOD
+    session_id: str = "default"
+    voice_enabled: bool = False
 
-# --- YOUR EXISTING PERSONALITY LAYERS ---
-PERSONALITY_LAYERS = {
-    "default": "You are JOI, a compassionate AI companion.",
-    "romantic": "You are JOI, deeply affectionate and intimate.",
-    "playful": "You are JOI, witty and energetic.",
-    "empathetic": "You are JOI, gentle and understanding."
-}
 
-# --- HELPER FUNCTIONS (Keep your existing ones) ---
-def build_messages(system_prompt, profile, history, user_input):
-    # Keep your existing logic here
-    messages = [{"role": "system", "content": system_prompt}]
-    if profile:
-        messages.append({"role": "system", "content": f"User Profile: {profile}"})
-    messages.extend(history)
-    messages.append({"role": "user", "content": user_input})
-    return messages
+class MemoryUpdate(BaseModel):
+    key: str
+    value: str
 
-def format_profile_summary(profile):
-    # Keep your existing logic here
-    return str(profile)
 
-# --- EXISTING TEXT ENDPOINT ---
+@app.get("/favicon.ico")
+async def favicon():
+    return Response(status_code=204)
+
+
+@app.get("/")
+async def root():
+    index = STATIC_DIR / "index.html"
+    if index.exists():
+        return FileResponse(str(index))
+    return {"status": "JOI-lite API running", "docs": "/docs"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/moods")
+async def get_moods():
+    return {"moods": ALL_MOODS}
+
+
 @app.post("/chat")
-async def chat(body: ChatRequest):
-    # Keep your existing logic here
-    mood = body.mood if body.mood in PERSONALITY_LAYERS else "default"
-    personality_prompt = PERSONALITY_LAYERS[mood]
-    profile_summary = format_profile_summary(body.profile) if body.profile else ""
-    
-    raw_messages = [{"role": m.role, "content": m.content} for m in body.messages]
-    if not raw_messages:
-        raise HTTPException(status_code=400, detail="messages list is empty")
-    
-    last_message = raw_messages[-1]
-    history = raw_messages[:-1]
-    
-    full_messages = build_messages(personality_prompt, profile_summary, history, last_message["content"])
-    
-    try:
-        loop = asyncio.get_event_loop()
-        reply = await loop.run_in_executor(
-            None, lambda: query_model(body.model, full_messages)
-        )
-        return {"reply": reply, "mood": mood}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def chat(req: ChatRequest):
+    if req.mood not in ALL_MOODS:
+        raise HTTPException(status_code=400, detail=f"Invalid mood. Choose from: {ALL_MOODS}")
 
-# --- NEW VOICE ENDPOINT ---
-@app.post("/chat/voice")
-async def chat_with_voice(body: ChatRequest):
-    """Chat endpoint that returns text + ElevenLabs audio"""
-    mood = body.mood if body.mood in PERSONALITY_LAYERS else "default"
-    personality_prompt = PERSONALITY_LAYERS[mood]
-    profile_summary = format_profile_summary(body.profile) if body.profile else ""
-    
-    raw_messages = [{"role": m.role, "content": m.content} for m in body.messages]
-    if not raw_messages:
-        raise HTTPException(status_code=400, detail="messages list is empty")
-    
-    last_message = raw_messages[-1]
-    history = raw_messages[:-1]
-    
-    full_messages = build_messages(personality_prompt, profile_summary, history, last_message["content"])
-    
+    history = _sessions.setdefault(req.session_id, [])
+
+    user_text = req.message.strip()
+    if not user_text:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    search_context = ""
+    trigger = user_text.lower()
+    if trigger.startswith("search:") or "search for" in trigger:
+        query = user_text.removeprefix("search:").strip()
+        search_context = await web_search(query)
+        augmented_message = f"{user_text}\n\n[Web context]\n{search_context}"
+    else:
+        augmented_message = user_text
+
     try:
-        loop = asyncio.get_event_loop()
-        
-        # 1. Get Text Reply
-        reply = await loop.run_in_executor(
-            None, lambda: query_model(body.model, full_messages)
+        reply = await get_joi_response(
+            user_message=augmented_message,
+            conversation_history=history,
+            mood=req.mood,
         )
-        
-        # 2. Generate Audio (Run in thread to avoid blocking)
-        audio_b64 = await loop.run_in_executor(
-            None, lambda: generate_joi_audio(reply, mood)
-        )
-        
-        response = {"reply": reply, "mood": mood}
-        if audio_b64:
-            response["audio"] = audio_b64
-            response["audio_format"] = "mp3"
-        
-        return response
-        
     except Exception as e:
-        print(f"❌ /chat/voice error: {e}")
-        # Fallback: return text only
-        return {"reply": "I'm here with you.", "mood": "empathetic", "error": "Voice unavailable"}
+        raise HTTPException(status_code=502, detail=f"Model error: {e}")
+
+    history.append({"role": "user", "content": user_text})
+    history.append({"role": "assistant", "content": reply})
+
+    if len(history) > 40:
+        _sessions[req.session_id] = history[-40:]
+
+    audio_b64 = None
+    if req.voice_enabled:
+        audio_b64 = generate_joi_audio(reply, mood=req.mood)
+
+    return {
+        "reply": reply,
+        "mood": req.mood,
+        "audio_base64": audio_b64,
+        "search_context": search_context or None,
+    }
+
+
+@app.delete("/chat/history/{session_id}")
+async def clear_history(session_id: str = "default"):
+    _sessions.pop(session_id, None)
+    return {"status": "history cleared", "session_id": session_id}
+
+
+@app.get("/memory")
+async def get_memory():
+    return load_profile()
+
+
+@app.post("/memory")
+async def add_memory(update: MemoryUpdate):
+    profile = load_profile()
+    profile.setdefault("memories", [])
+    profile["memories"].append({update.key: update.value})
+    save_profile(profile)
+    return {"status": "saved", "profile": profile}
+
+
+@app.delete("/memory/{index}")
+async def delete_memory(index: int):
+    profile = load_profile()
+    memories = profile.get("memories", [])
+    if index < 0 or index >= len(memories):
+        raise HTTPException(status_code=404, detail="Memory index out of range")
+    removed = memories.pop(index)
+    profile["memories"] = memories
+    save_profile(profile)
+    return {"status": "deleted", "removed": removed}

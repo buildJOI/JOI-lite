@@ -1,71 +1,53 @@
-"""
-model_handler.py — Joi-lite model interface
-
-BUG FIXES:
-- Added request timeout (original had none — hangs forever on network issues)
-- Added Content-Type header validation
-- Better error message extraction from API response body
-- response.raise_for_status() replaces manual status check for cleaner exception chain
-"""
-import requests
-from typing import List, Dict, TypedDict
-from config import API_KEYS, API_ENDPOINTS, MODEL_NAMES
+import httpx
+from datetime import datetime
+from config import (
+    GROQ_API_KEY,
+    GROQ_BASE_URL,
+    GROQ_MODEL,
+    PERSONALITY_SYSTEM_PROMPTS,
+    DEFAULT_MOOD,
+)
 
 
-class ModelPayload(TypedDict):
-    model: str
-    messages: List[Dict[str, str]]
-    max_tokens: int
+def _build_system_prompt(mood: str) -> str:
+    base = PERSONALITY_SYSTEM_PROMPTS.get(mood, PERSONALITY_SYSTEM_PROMPTS[DEFAULT_MOOD])
+    today = datetime.now().strftime("%A, %B %d, %Y")
+    return f"{base}\n\nToday's date is {today}."
 
 
-def query_model(
-    model_name: str,
-    messages: List[Dict[str, str]],
-    max_tokens: int = 512,
-    timeout: int = 30,  # BUG FIX: added timeout parameter
+async def get_joi_response(
+    user_message: str,
+    conversation_history: list[dict],
+    mood: str = DEFAULT_MOOD,
 ) -> str:
-    api_key = API_KEYS.get(model_name)
-    endpoint = API_ENDPOINTS.get(model_name)
-    model_id = MODEL_NAMES.get(model_name)
+    if not GROQ_API_KEY:
+        return "⚠️ GROQ_API_KEY is not configured. Please set it in your .env file."
 
-    if not endpoint or not api_key or not isinstance(model_id, str):
-        raise ValueError(f"Invalid or missing configuration for model '{model_name}'")
+    system_prompt = _build_system_prompt(mood)
 
-    payload: ModelPayload = {
-        "model": model_id,
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(conversation_history)
+    messages.append({"role": "user", "content": user_message})
+
+    payload = {
+        "model": GROQ_MODEL,
         "messages": messages,
-        "max_tokens": max_tokens,
+        "temperature": 0.85,
+        "max_tokens": 512,
     }
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
 
-    try:
-        response = requests.post(
-            endpoint,
-            headers=headers,
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            f"{GROQ_BASE_URL}/v1/chat/completions",
             json=payload,
-            timeout=timeout,  # BUG FIX: prevents infinite hang
+            headers=headers,
         )
-    except requests.exceptions.Timeout:
-        raise Exception(f"Request to '{model_name}' timed out after {timeout}s")
-    except requests.exceptions.ConnectionError as e:
-        raise Exception(f"Connection error for '{model_name}': {e}")
+        response.raise_for_status()
+        data = response.json()
 
-    if not response.ok:
-        # BUG FIX: try to extract error detail from JSON body if available
-        try:
-            err_detail = response.json().get("error", {}).get("message", response.text)
-        except Exception:
-            err_detail = response.text
-        raise Exception(f"API Error {response.status_code} ({model_name}): {err_detail}")
-
-    result = response.json()
-
-    # BUG FIX: Guard against unexpected response shape
-    try:
-        return result["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, TypeError) as e:
-        raise Exception(f"Unexpected API response structure from '{model_name}': {e}\nResponse: {result}")
+    return data["choices"][0]["message"]["content"].strip()
