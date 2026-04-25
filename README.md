@@ -98,7 +98,7 @@ JOI-lite/
 ### Clone Repository
 
 ```id="clone001"
-git clone https://github.com/YOUR_USERNAME/joi-lite.git
+git clone https://github.com/buildJOI/joi-lite.git
 cd joi-lite
 ```
 
