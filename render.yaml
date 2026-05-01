@@ -6,10 +6,14 @@ services:
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DEEPSEEK_API_KEY
-        sync: false          # set in Render dashboard — never hardcode
-      - key: ELEVENLABS_API_KEY
-        sync: false
+        sync: false          # set manually in Render dashboard
       - key: SERPER_API_KEY
-        sync: false
-      - key: ALLOWED_ORIGINS
-        value: https://your-render-app.onrender.com  # update after first deploy
+        sync: false          # optional
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com/v1
+    disk:
+      name: joi-memory
+      mountPath: /opt/render/project/src
+      sizeGB: 1              # persists memory_store.json across deploys
