@@ -179,8 +179,4 @@ def is_mic_available() -> bool:
             pass
         return True
     except Exception:
-<<<<<<< HEAD
         return False
-=======
-        return False
->>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)

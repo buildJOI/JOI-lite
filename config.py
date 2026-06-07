@@ -82,8 +82,4 @@ PERSONALITY_SYSTEM_PROMPTS = {
     ),
 }
 
-<<<<<<< HEAD
 ALL_MOODS = list(PERSONALITY_SYSTEM_PROMPTS.keys())
-=======
-ALL_MOODS = list(PERSONALITY_SYSTEM_PROMPTS.keys())
->>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
