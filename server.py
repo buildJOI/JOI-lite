@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """
 JOI-lite FastAPI Server
 ========================
@@ -309,3 +310,152 @@ def _importance_score(text: str) -> float:
                         "i'm", "birthday", "dream", "scared", "excited"]
     personal_score = sum(0.1 for s in personal_signals if s in text.lower())
     return min(0.3 + length_score * 0.4 + personal_score, 1.0)
+=======
+import uuid
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional, Dict, List
+
+# Your existing modules
+from model_handler import get_joi_response
+from config import ALL_MOODS, DEFAULT_MOOD
+
+# Voice output (optional — works without ELEVENLABS_API_KEY)
+from voice_handler import generate_joi_audio
+
+# NEW: Semantic memory
+from memory import retrieve_memory, store_memory, retrieve_user_profile
+
+app = FastAPI(title="JOI-lite API")
+
+# -------------------------------
+# CORS — allow the frontend dev server and any production origin
+# -------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -------------------------------
+# Session Storage (Short-term memory)
+# -------------------------------
+_sessions: Dict[str, List[Dict[str, str]]] = {}
+
+
+# -------------------------------
+# Request Model
+# -------------------------------
+class ChatRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    mood: Optional[str] = "default"
+
+
+# -------------------------------
+# Root / Health
+# -------------------------------
+@app.get("/")
+def root():
+    return {"message": "JOI-lite API is running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# -------------------------------
+# Moods — frontend uses this to populate the mood selector
+# -------------------------------
+@app.get("/moods")
+def get_moods():
+    return {"moods": ALL_MOODS, "default": DEFAULT_MOOD}
+
+
+# -------------------------------
+# Chat Endpoint (CORE LOGIC)
+# -------------------------------
+@app.post("/chat")
+async def chat(req: ChatRequest):
+    user_text = req.message
+
+    # Session Handling
+    session_id = req.session_id or str(uuid.uuid4())
+    if session_id not in _sessions:
+        _sessions[session_id] = []
+    history = _sessions[session_id]
+
+    # STEP 1: Retrieve Semantic Memory
+    relevant_memories = retrieve_memory(user_text)
+    memory_context = ""
+    if relevant_memories:
+        memory_context = "\n".join([f"- {mem}" for mem in relevant_memories])
+
+    # STEP 2: Build Augmented Prompt with user profile + relevant memories
+    user_profile = retrieve_user_profile()
+    augmented_prompt = f"""
+{user_profile if user_profile else ""}
+
+Relevant past context for this query:
+{memory_context if memory_context else "None"}
+
+User: {user_text}
+"""
+
+    # STEP 3: Call LLM
+    joi_response = await get_joi_response(
+        user_message=augmented_prompt,
+        conversation_history=history,
+        mood=req.mood,
+    )
+
+    # STEP 4: Update Session Memory
+    history.append({"role": "user", "content": user_text})
+    history.append({"role": "assistant", "content": joi_response})
+
+    # STEP 5: Store Semantic Memory — user message + JOI reply together
+    try:
+        store_memory(user_text, joi_reply=str(joi_response))
+    except Exception as e:
+        print(f"[Memory Error] {e}")
+
+    # Generate voice audio (None if key not set or generation fails)
+    audio_b64 = generate_joi_audio(joi_response, mood=req.mood or "default")
+
+    return {
+        "session_id": session_id,
+        "response": joi_response,
+        "emotion": getattr(joi_response, "emotion", "happy"),
+        "audio_b64": audio_b64,
+    }
+
+
+# -------------------------------
+# Memory endpoints
+# -------------------------------
+@app.get("/memory")
+def view_memory():
+    try:
+        import json
+        with open("memory.json", "r") as f:
+            data = json.load(f)
+        return data
+    except Exception:
+        return {"message": "No memory found"}
+
+
+@app.delete("/memory")
+def clear_memory():
+    import os
+    try:
+        if os.path.exists("memory.json"):
+            os.remove("memory.json")
+        if os.path.exists("memory.index"):
+            os.remove("memory.index")
+        return {"message": "Memory cleared"}
+    except Exception as e:
+        return {"error": str(e)}
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)

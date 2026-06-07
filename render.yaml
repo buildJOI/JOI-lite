@@ -6,6 +6,7 @@ services:
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DEEPSEEK_API_KEY
+<<<<<<< HEAD
         sync: false          # set manually in Render dashboard
       - key: SERPER_API_KEY
         sync: false          # optional
@@ -17,3 +18,12 @@ services:
       name: joi-memory
       mountPath: /opt/render/project/src
       sizeGB: 1              # persists memory_store.json across deploys
+=======
+        sync: false          # set in Render dashboard — never hardcode
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://your-render-app.onrender.com  # update after first deploy
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
