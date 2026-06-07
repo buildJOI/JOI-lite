@@ -167,4 +167,8 @@ def main():
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     main()
+=======
+    main()
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)

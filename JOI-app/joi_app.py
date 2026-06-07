@@ -36,6 +36,10 @@ from config import ALL_MOODS, DEFAULT_MOOD, GROQ_API_KEY, GROQ_BASE_URL, GROQ_MO
 from model_handler import _build_system_prompt, parse_tool_call, strip_tool_call
 from desktop_agent import execute_tool
 from tool_websearch import web_search
+<<<<<<< HEAD
+=======
+from voice_handler import generate_joi_audio
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 C = {
@@ -83,24 +87,45 @@ class VoiceOutput:
     def _run(self):
         self._engine = self._init_engine()
         while True:
+<<<<<<< HEAD
+=======
+            # Drain and reset when interrupted
+            if self._stop_event.is_set():
+                while not self._queue.empty():
+                    try: self._queue.get_nowait()
+                    except: pass
+                self._stop_event.clear()
+                self._speaking = False
+                continue
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
             try:
                 sentence = self._queue.get(timeout=0.1)
             except queue.Empty:
                 continue
             if sentence is None:
                 continue
+<<<<<<< HEAD
             if self._stop_event.is_set():
                 # Drain queue on interrupt
+=======
+            # Re-check after dequeue (interrupt may have arrived while blocked)
+            if self._stop_event.is_set():
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
                 while not self._queue.empty():
                     try: self._queue.get_nowait()
                     except: pass
                 self._stop_event.clear()
+<<<<<<< HEAD
+=======
+                self._speaking = False
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
                 continue
             self._speaking = True
             self._speak_sentence(sentence)
             self._speaking = False
 
     def _speak_sentence(self, text: str):
+<<<<<<< HEAD
         if not self._engine or not text.strip():
             return
         try:
@@ -108,6 +133,34 @@ class VoiceOutput:
             self._engine.runAndWait()
         except Exception as e:
             print(f"[Voice] speak error: {e}")
+=======
+        if not text.strip():
+            return
+        if self._engine:
+            try:
+                self._engine.say(text)
+                self._engine.runAndWait()
+                return
+            except Exception as e:
+                print(f"[Voice] pyttsx3 speak error: {e}")
+        # Fallback: ElevenLabs → play via sounddevice if available
+        try:
+            audio_b64 = generate_joi_audio(text)
+            if audio_b64:
+                import base64, io
+                audio_bytes = base64.b64decode(audio_b64)
+                try:
+                    import sounddevice as sd
+                    import soundfile as sf
+                    data, samplerate = sf.read(io.BytesIO(audio_bytes))
+                    sd.play(data, samplerate)
+                    sd.wait()
+                except ImportError:
+                    # sounddevice not installed — silently skip
+                    pass
+        except Exception as e:
+            print(f"[Voice] ElevenLabs fallback error: {e}")
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
 
     def speak(self, sentence: str):
         """Queue a sentence for speaking. Starts immediately."""

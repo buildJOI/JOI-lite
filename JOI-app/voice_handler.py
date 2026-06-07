@@ -86,7 +86,15 @@ def generate_joi_audio(text: str, mood: str = "default") -> str | None:
             output_format="mp3_44100_128",
         )
 
+<<<<<<< HEAD
         audio_bytes = b"".join(audio_iter)
+=======
+        # SDK may return bytes directly or a generator — handle both
+        if isinstance(audio_iter, (bytes, bytearray)):
+            audio_bytes = bytes(audio_iter)
+        else:
+            audio_bytes = b"".join(audio_iter)
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
         return base64.b64encode(audio_bytes).decode("utf-8")
 
     except Exception as e:

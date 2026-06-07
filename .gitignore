@@ -1,4 +1,5 @@
 .env
+<<<<<<< HEAD
 __pycache__/
 *.pyc
 *.pyo
@@ -9,3 +10,14 @@ build/
 .venv/
 venv/
 user_profile.json   # contains personal data — back up separately
+=======
+*.pyc
+__pycache__/
+memory.json
+memory.index
+node_modules/
+frontend/dist/
+frontend/.env
+venv/
+.venv/
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)

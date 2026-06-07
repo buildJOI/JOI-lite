@@ -135,4 +135,8 @@ def request_permission(action: str, detail: str = "") -> bool:
     t.start()
     t.join(timeout=35)
 
+<<<<<<< HEAD
     return bool(result_holder and result_holder[0])
+=======
+    return bool(result_holder and result_holder[0])
+>>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
