@@ -6,7 +6,7 @@ import { AnimatedJoi } from "@/components/joi/AnimatedJoi";
 import { EmotionEffects } from "@/components/joi/EmotionEffects";
 import { SparkleField } from "@/components/joi/SparkleField";
 import { startVoiceCapture, blendToneEmotion, type VoiceHandle } from "@/lib/voice";
-import { sendChat, fetchMoods, playAudioB64 } from "@/lib/api/joi";
+import { streamChat, fetchMoods, playAudioB64 } from "@/lib/api/joi";
 
 export const Route = createFileRoute("/chat")({
   ssr: false,
@@ -125,7 +125,7 @@ function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sendMessage = async (text: string, overrideEmotion?: JoiExpression) => {
+  const sendMessage = (text: string, overrideEmotion?: JoiExpression) => {
     const clean = text.trim();
     if (!clean) return;
 
@@ -137,51 +137,54 @@ function ChatPage() {
     const userEmo = overrideEmotion ?? detectEmotion(clean);
     setExpression(userEmo);
     setMicState("thinking");
-    await new Promise((r) => setTimeout(r, 520));
-    setExpression("thinking");
+    setTimeout(() => setExpression("thinking"), 520);
 
-    try {
-      const data = await sendChat(clean, sessionId.current, mood);
+    streamChat(
+      clean,
+      sessionId.current,
+      mood,
+      (data) => {
+        // Each SSE event — "thinking aloud" arrives first, then the final result
+        sessionId.current = data.session_id;
 
-      // Persist session id for this conversation
-      sessionId.current = data.session_id;
+        const emo = overrideEmotion ?? (data.emotion as JoiExpression) ?? detectEmotion(data.response);
+        setExpression("talking");
+        setMicState("speaking");
+        setMessages((m) => [
+          ...m,
+          { id: crypto.randomUUID(), role: "joi", text: data.response, at: new Date() },
+        ]);
 
-      // Prefer the emotion the backend explicitly tagged; fall back to text heuristic
-      const emo = overrideEmotion ?? (data.emotion as JoiExpression) ?? detectEmotion(data.response);
-      setExpression("talking");
-      setMicState("speaking");
-      setMessages((m) => [
-        ...m,
-        { id: crypto.randomUUID(), role: "joi", text: data.response, at: new Date() },
-      ]);
+        if (data.audio_b64) {
+          audioHandle.current?.stop();
+          audioHandle.current = playAudioB64(data.audio_b64);
+        }
 
-      // Play ElevenLabs audio if available, otherwise rely on browser TTS
-      if (data.audio_b64) {
-        audioHandle.current?.stop();
-        audioHandle.current = playAudioB64(data.audio_b64);
-      }
-
-      setTimeout(() => {
-        setExpression(emo);
+        if (data.done) {
+          setTimeout(() => {
+            setExpression(emo);
+            setMicState("idle");
+          }, 1300);
+          armIdle();
+        }
+      },
+      (err) => {
+        console.error("[JOI] chat error", err);
+        setMessages((m) => [
+          ...m,
+          {
+            id: crypto.randomUUID(),
+            role: "joi",
+            text: "I couldn't reach the server right now. Is the backend running?",
+            at: new Date(),
+          },
+        ]);
+        setExpression("concerned");
         setMicState("idle");
-      }, 1300);
-    } catch (err) {
-      console.error("[JOI] chat error", err);
-      setMessages((m) => [
-        ...m,
-        {
-          id: crypto.randomUUID(),
-          role: "joi",
-          text: "I couldn't reach the server right now. Is the backend running?",
-          at: new Date(),
-        },
-      ]);
-      setExpression("concerned");
-      setMicState("idle");
-      setTimeout(() => setExpression("happy"), 2000);
-    }
-
-    armIdle();
+        setTimeout(() => setExpression("happy"), 2000);
+        armIdle();
+      },
+    );
   };
 
   const handleMicTap = () => {
