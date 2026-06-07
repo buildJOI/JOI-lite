@@ -2,23 +2,6 @@
 title JOI — Justified Operative Interface
 cd /d "%~dp0"
 
-<<<<<<< HEAD
-:: Activate venv if present
-if exist "venv\Scripts\activate.bat" (
-    call venv\Scripts\activate.bat
-)
-
-echo.
-echo  J O I  —  Justified Operative Interface
-echo  Starting system tray...
-echo  Ctrl+Shift+J to open / hide the interface
-echo  Right-click the tray icon to quit
-echo.
-
-python tray_app.py@echo off
-title JOI — Justified Operative Interface
-cd /d "%~dp0"
-=======
 echo.
 echo  =====================================================
 echo   J O I  —  Justified Operative Interface
@@ -33,23 +16,12 @@ echo.
 echo  Close this window to stop both servers.
 echo  =====================================================
 echo.
->>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
 
 :: Activate venv if present
 if exist "venv\Scripts\activate.bat" (
     call venv\Scripts\activate.bat
 )
 
-<<<<<<< HEAD
-echo.
-echo  J O I  —  Justified Operative Interface
-echo  Starting system tray...
-echo  Ctrl+Shift+J to open / hide the interface
-echo  Right-click the tray icon to quit
-echo.
-
-python tray_app.py
-=======
 :: Start the FastAPI backend in a new window
 start "JOI Backend" cmd /k "cd /d "%~dp0" && py -3.13 -m uvicorn server:app --reload --port 8000"
 
@@ -67,4 +39,3 @@ echo  Both servers are running in separate windows.
 echo  Close those windows individually to stop each server.
 echo.
 pause
->>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)

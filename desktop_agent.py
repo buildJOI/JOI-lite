@@ -400,8 +400,4 @@ async def execute_tool(tool_name: str, **kwargs) -> dict:
     except TypeError as e:
         return fail(f"Wrong parameters for '{tool_name}': {e}")
     except Exception as e:
-<<<<<<< HEAD
         return fail(f"Tool error: {e}")
-=======
-        return fail(f"Tool error: {e}")
->>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
