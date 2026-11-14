@@ -1,251 +1,156 @@
-# JOI-Lite — Justified Operative Interface
+# JOI — Justified Operative Interface
 
-[![Status](https://img.shields.io/badge/status-active_development-blue)]()
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
-[![Deployment](https://img.shields.io/badge/deployment-render-informational)]()
+A JARVIS-style, Blade Runner 2049 (JOI) inspired AI companion that runs on your own PC.
+It chats with you in a browser UI, talks back, and can act on your computer: open apps,
+search YouTube and Wikipedia in Chrome, read windows, use the camera, microphone, sensors
+and USB devices. Every sensitive action asks your permission first, by chat or by voice.
 
-**A voice-enabled, memory-driven AI assistant with adaptive personality layers, designed as a foundation for future human-like digital companions.**
+## Features
 
----
+- **Chat UI** (React + TanStack Start) with the JOI mascot and nine personality modes.
+- **Desktop control**: open apps and URLs, search Google/Bing/DuckDuckGo, YouTube and Wikipedia
+  (opens Chrome), list and focus windows, keyboard and mouse, clipboard, processes, files, power.
+- **Permission gate**: camera, microphone, screenshots, sensors, window monitoring, USB, shell,
+  file changes, closing programs and power actions all ask first. Replies: `allow`, `allow for this session`, `deny`.
+- **Voice**: JOI's cloud voice via ElevenLabs (optional) and a microphone mode where you say "JOI, ..."
+- **Audit log**: every tool run is recorded in `~/.joi/audit.log` (argument names only, never content).
+- **Web search** (optional, Serper).
 
-## Overview
+## Quick start
 
-JOI-Lite is an advanced AI assistant system that combines conversational intelligence, persistent memory, and voice interaction into a unified architecture.
+You need **Python 3.10+** and **Node.js 18+**.
 
-Unlike traditional chatbots, JOI-Lite is designed to simulate continuity, emotional awareness, and adaptive behavior across sessions. The system is built with extensibility in mind, enabling future integration with hardware systems, operating environments, and immersive interfaces.
+```bash
+git clone <your-repo-url> JOI
+cd JOI
+cp .env.example .env      # Windows: copy .env.example .env
+# open .env and paste your GROQ_API_KEY (free at https://console.groq.com)
 
----
-
-## Key Capabilities
-
-### Adaptive AI Interaction
-
-* Dynamic personality layers (romantic, empathetic, professional, investigative, playful)
-* Context-aware responses with continuity
-* Automatic tone adjustment based on user input
-
----
-
-### Persistent Memory
-
-* User profile storage using structured JSON
-* Cross-session memory retention
-* Personalized response generation over time
-
----
-
-### Voice Integration
-
-* Text-to-speech response generation
-* Personality-driven voice modulation
-* Real-time conversational output pipeline
-
----
-
-### Modular Architecture
-
-* Clear separation of logic for scalability
-* Backend API handling and response orchestration
-* Frontend interface for user interaction
-* Easily extendable for new features and integrations
-
----
-
-## Architecture Overview
-
-```id="arch001"
-Frontend (HTML UI)
-        │
-        ▼
-Backend Server (server.py)
-        │
-        ▼
-Model Handler (AI Processing)
-        │
-        ├── Memory System (user_profile.json)
-        ├── Voice Handler (TTS)
-        └── Web Search Tool
+python run.py             # Windows, macOS or Linux
 ```
 
----
+`python run.py` installs what is missing on the first run, starts the backend and the frontend,
+waits until both are ready, and opens http://127.0.0.1:5173. Press **Ctrl+C** to stop everything.
 
-## Project Structure
+Windows shortcut: double-click `start.bat`. macOS/Linux: `./start.sh`.
 
-```id="struct001"
-JOI-lite/
-│
-├── app.py
-├── server.py
-├── model_handler.py
-├── voice_handler.py
-├── tool_websearch.py
-├── config.py
-│
-├── static/
-│   └── index.html
-│
-├── user_profile.json
-├── requirements.txt
-├── render.yaml
-└── README.md
+## Configuration (`.env`)
+
+One file controls everything. Only the first key is required for chat.
+
+| Variable | Required | What it does |
+|---|---|---|
+| `GROQ_API_KEY` | yes, for chat | The AI brain (Groq, Llama 3.3 70B). Free tier available. |
+| `ELEVENLABS_API_KEY` | no | JOI speaks with an ElevenLabs voice in the browser. Without it, replies are text only. |
+| `ELEVENLABS_VOICE_ID` | no | Which ElevenLabs voice to use. |
+| `SERPER_API_KEY` | no | Enables the web search tool. |
+| `JOI_VOICE` | no | `1` turns on microphone voice mode (say "JOI, ..."). Needs the optional packages. |
+| `GROQ_MODEL` | no | Override the model name. |
+| `JOI_PORT` | no | Backend port (default 8000). |
+| `JOI_FRONTEND_PORT` | no | Frontend port (default 5173). |
+
+`run.py` prints a warning instead of failing when a key is missing, so the app always starts.
+Chat tells you what's missing.
+
+## Optional features
+
+The core install is enough for chat and desktop control. Camera, microphone recording, USB serial,
+raw USB and microphone voice mode need extra packages:
+
+```bash
+pip install -r backend/requirements-optional.txt
 ```
 
----
+`run.py` reports which optional features are off at startup.
 
-## Installation
+- **Raw USB** (`pyusb`) needs libusb. On Windows, some devices need the WinUSB driver (Zadig).
+- **Microphone recording** needs PortAudio (included in the Windows wheel).
 
-### Clone Repository
+## Permission model
 
-```id="clone001"
-git clone https://github.com/buildJOI/joi-lite.git
-cd joi-lite
+| Runs without asking | Asks first |
+|---|---|
+| Open apps and URLs, YouTube, web and Wikipedia search, list and focus windows, system stats, read and list files, web search, USB name scan | Camera, microphone, screenshots, sensors, window-switch logging, clipboard, USB device access, keyboard and mouse, shell commands, file write and delete, closing programs, power actions |
+
+- **Allow** runs the action once. **Allow for this session** remembers it until restart. Shell and power
+  actions can never be granted for a whole session.
+- Requests from voice and chat share the same rules.
+
+Example: "JOI, take a photo" → "I need your permission to use your camera… Say allow, deny, or allow for this session."
+
+## Example commands
+
+- "Open YouTube and search for lo-fi jazz on Chrome"
+- "Search Wikipedia for Blade Runner 2049 on Chrome"
+- "What's my CPU and battery status?"
+- "List the USB devices connected"
+- "Take a photo" (asks permission)
+- "Read the files on E:" (USB drive; asks permission)
+
+## Project structure
+
+```
+JOI/
+├── run.py                    one-command launcher (backend + frontend)
+├── start.bat / start.sh      double-click / shell wrappers for run.py
+├── .env.example              every setting, documented
+├── backend/                  FastAPI backend: the brain and the PC control
+│   ├── server.py             HTTP API (/api/chat, /api/moods, /api/permissions, ...)
+│   ├── agent.py              Groq LLM loop, tool calling, permission replies
+│   ├── tools.py              all tools (PC, browser, camera, mic, sensors, USB, files)
+│   ├── permissions.py        permission gate and audit log
+│   ├── voice.py              optional microphone voice loop
+│   ├── tts.py                ElevenLabs cloud voice
+│   ├── config.py             settings, read from .env
+│   ├── requirements.txt      core packages
+│   └── requirements-optional.txt
+├── frontend/                 React UI (TanStack Start + Vite), dev server proxies /api
+└── legacy/desktop-pyqt/      the original PyQt6 desktop app (not started by run.py)
 ```
 
-### Environment Setup
+## Architecture
 
-```id="env001"
-ELEVENLABS_API_KEY="your api key"
-GROQ_API_KEY="your api key"
-SERPER_API_KEY="your api key"
+```
+Browser (React UI, :5173)
+   │  /api/*  (Vite dev proxy)
+   ▼
+FastAPI backend (127.0.0.1:8000)
+   ├── agent.py ── Groq LLM ── tool calls ──► tools.py ──► your PC
+   │      │                                     ▲
+   │      └── permission_required ──► permissions.py (ask → allow/deny)
+   ├── tts.py ── ElevenLabs (optional voice)
+   └── voice.py ── microphone loop (optional, JOI_VOICE=1)
 ```
 
-### Install Dependencies
+## Security
 
-```id="install001"
-pip install -r requirements.txt
-```
+- The backend listens on **127.0.0.1 only**. It is not reachable from your network.
+- Requests from web origins other than the frontend are rejected (HTTP 403), so a random website cannot
+  drive your PC through your browser.
+- Sensitive tools cannot run without your approval. Everything is recorded in `~/.joi/audit.log`.
+- Keys live only in `.env`, which is git-ignored. Never commit it.
+- `pyautogui` failsafe: slam the mouse into a screen corner to abort keyboard/mouse control.
 
-### Run Application
+## Troubleshooting
 
-```id="run001"
-python app.py
-```
+| Symptom | Fix |
+|---|---|
+| "GROQ_API_KEY is empty" warning, chat says it can't reach the model | Add the key to `.env` and restart. |
+| "Port 8000 / 5173 is already in use" | Stop the other program or set `JOI_PORT` / `JOI_FRONTEND_PORT` in `.env`. |
+| "Node.js (npm) was not found" | Install Node 18+ from https://nodejs.org and run again. |
+| `npm install` fails | Delete `frontend/node_modules` and run `python run.py` again. The project already sets `legacy-peer-deps` in `frontend/.npmrc`. |
+| Camera or USB tools say the feature is off | Install `backend/requirements-optional.txt`. |
+| Window monitor / power / window list do nothing | These are Windows-only. |
 
----
+## Notes and limits
 
-## Current Scope
-
-* Conversational AI with contextual awareness
-* Persistent user memory
-* Voice-enabled responses
-* Personality-based interaction system
-* Lightweight web interface
-* Modular backend architecture
-
----
-
-## Roadmap
-
-### Phase 1 — System Expansion
-
-* Real-time voice input (speech-to-text)
-* Streaming responses
-* Improved frontend interface
-
----
-
-### Phase 2 — Desktop Integration
-
-* Operating system interaction
-* Application control and automation
-* File system navigation via AI
-
----
-
-### Phase 3 — Hardware Integration
-
-* IoT device control
-* Microcontroller support (Arduino, Raspberry Pi)
-* Sensor-driven contextual responses
-
----
-
-### Phase 4 — Advanced AI Capabilities
-
-* Local model execution (Ollama, Hugging Face)
-* Multimodal processing (text, voice, vision)
-* Emotion detection from speech
-
----
-
-### Phase 5 — Embodied Interface
-
-* 3D avatar representation
-* Real-time facial expression rendering
-* Gesture-based interaction
-* AR/VR compatibility
-
----
-
-### Phase 6 — Experimental Interface Research
-
-* Projection-based visualization systems
-* Spatial interaction environments
-* Early-stage exploration of holographic presence
-
----
-
-## Design Philosophy
-
-JOI-Lite is built on three core principles:
-
-1. Continuity — The system should remember and evolve with the user
-2. Adaptability — Behavior should adjust dynamically to context and tone
-3. Extensibility — The architecture should support future expansion beyond software
-
----
-
-## Contributing
-
-Contributions are currently limited to maintain architectural consistency.
-You may:
-
-* Open issues
-* Suggest features
-* Report bugs
-
----
-
-## Security Notes
-
-* Do not commit `.env` or API keys
-* Use environment variables for all sensitive data
-* Review commits before pushing to public repositories
-
----
+- Window monitoring, power control and window listing are Windows-only.
+- Sensors: only what the OS exposes (battery, CPU frequency, and temperature/fan sensors where available).
+  Ambient light, accelerometer and GPS need device-specific drivers.
+- Arbitrary USB devices need a driver (WinUSB via Zadig) before raw access works. Drives and serial ports work directly.
+- The legacy PyQt app and the older web memory/mood engines are kept for reference only. They are not started
+  by `run.py`.
 
 ## License
 
-MIT License
-
----
-
-## Author
-
-Jithin Jeevan
-BCA Student — Artificial Intelligence and Systems Development
-
----
-
-## Project Positioning
-
-JOI-Lite is not positioned as a chatbot, but as an early-stage system exploring the transition from:
-
-**Conversational AI → Persistent Intelligence → Interactive Systems → Digital Companions**
-
----
-
-## Future Direction
-
-The long-term direction of JOI-Lite is focused on bridging software intelligence with physical and immersive interaction layers, moving toward systems that can operate across:
-
-* Personal computing environments
-* Smart physical spaces
-* Interactive visual interfaces
-
----
-
-## Demonstration
-
-Demonstration and live deployment links will be added in future updates.
+Personal project. Add a license before you publish it.

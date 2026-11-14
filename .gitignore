@@ -1,23 +1,22 @@
 .env
-<<<<<<< HEAD
-__pycache__/
-*.pyc
-*.pyo
-.DS_Store
-*.egg-info/
-dist/
-build/
-.venv/
 venv/
-user_profile.json   # contains personal data — back up separately
-=======
-*.pyc
+.venv/
 __pycache__/
-memory.json
-memory.index
+*.pyc
 node_modules/
 frontend/dist/
-frontend/.env
-venv/
+frontend/.output/
+frontend/.vite/
+.DS_Store
+*.log
+user_profile.json
+memory_store.json
+**/user_profile.json
+=*
+
 .venv/
->>>>>>> b2dbefe (initial commit — JOI-lite v2 with React frontend)
+logs/
+venv/
+.env
+user_profile.json
+memory_store.json

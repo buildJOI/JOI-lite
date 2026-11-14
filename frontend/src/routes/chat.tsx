@@ -6,7 +6,7 @@ import { AnimatedJoi } from "@/components/joi/AnimatedJoi";
 import { EmotionEffects } from "@/components/joi/EmotionEffects";
 import { SparkleField } from "@/components/joi/SparkleField";
 import { startVoiceCapture, blendToneEmotion, type VoiceHandle } from "@/lib/voice";
-import { streamChat, fetchMoods, playAudioB64 } from "@/lib/api/joi";
+import { sendChat, fetchMoods, fetchVoiceFeed, playAudioB64 } from "@/lib/api/joi";
 
 export const Route = createFileRoute("/chat")({
   ssr: false,
@@ -125,7 +125,36 @@ function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sendMessage = (text: string, overrideEmotion?: JoiExpression) => {
+  // Commands spoken to JOI's microphone (and its replies) appear in the chat
+  const voiceCursor = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    const timer = setInterval(async () => {
+      try {
+        const { items, next } = await fetchVoiceFeed(voiceCursor.current);
+        if (!alive) return;
+        voiceCursor.current = next;
+        if (items.length === 0) return;
+        setMessages((m) => [
+          ...m,
+          ...items.map((i) => ({
+            id: `voice-${i.id}`,
+            role: (i.role === "user" ? "user" : "joi") as Role,
+            text: i.text,
+            at: new Date(),
+          })),
+        ]);
+      } catch {
+        /* backend not reachable yet; try again on the next tick */
+      }
+    }, 1500);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const sendMessage = async (text: string, overrideEmotion?: JoiExpression) => {
     const clean = text.trim();
     if (!clean) return;
 
@@ -137,54 +166,51 @@ function ChatPage() {
     const userEmo = overrideEmotion ?? detectEmotion(clean);
     setExpression(userEmo);
     setMicState("thinking");
-    setTimeout(() => setExpression("thinking"), 520);
+    await new Promise((r) => setTimeout(r, 520));
+    setExpression("thinking");
 
-    streamChat(
-      clean,
-      sessionId.current,
-      mood,
-      (data) => {
-        // Each SSE event — "thinking aloud" arrives first, then the final result
-        sessionId.current = data.session_id;
+    try {
+      const data = await sendChat(clean, sessionId.current, mood);
 
-        const emo = overrideEmotion ?? (data.emotion as JoiExpression) ?? detectEmotion(data.response);
-        setExpression("talking");
-        setMicState("speaking");
-        setMessages((m) => [
-          ...m,
-          { id: crypto.randomUUID(), role: "joi", text: data.response, at: new Date() },
-        ]);
+      // Persist session id for this conversation
+      sessionId.current = data.session_id;
 
-        if (data.audio_b64) {
-          audioHandle.current?.stop();
-          audioHandle.current = playAudioB64(data.audio_b64);
-        }
+      // Prefer the emotion the backend explicitly tagged; fall back to text heuristic
+      const emo = overrideEmotion ?? (data.emotion as JoiExpression) ?? detectEmotion(data.response);
+      setExpression("talking");
+      setMicState("speaking");
+      setMessages((m) => [
+        ...m,
+        { id: crypto.randomUUID(), role: "joi", text: data.response, at: new Date() },
+      ]);
 
-        if (data.done) {
-          setTimeout(() => {
-            setExpression(emo);
-            setMicState("idle");
-          }, 1300);
-          armIdle();
-        }
-      },
-      (err) => {
-        console.error("[JOI] chat error", err);
-        setMessages((m) => [
-          ...m,
-          {
-            id: crypto.randomUUID(),
-            role: "joi",
-            text: "I couldn't reach the server right now. Is the backend running?",
-            at: new Date(),
-          },
-        ]);
-        setExpression("concerned");
+      // Play ElevenLabs audio if available, otherwise rely on browser TTS
+      if (data.audio_b64) {
+        audioHandle.current?.stop();
+        audioHandle.current = playAudioB64(data.audio_b64);
+      }
+
+      setTimeout(() => {
+        setExpression(emo);
         setMicState("idle");
-        setTimeout(() => setExpression("happy"), 2000);
-        armIdle();
-      },
-    );
+      }, 1300);
+    } catch (err) {
+      console.error("[JOI] chat error", err);
+      setMessages((m) => [
+        ...m,
+        {
+          id: crypto.randomUUID(),
+          role: "joi",
+          text: "I couldn't reach the server right now. Is the backend running?",
+          at: new Date(),
+        },
+      ]);
+      setExpression("concerned");
+      setMicState("idle");
+      setTimeout(() => setExpression("happy"), 2000);
+    }
+
+    armIdle();
   };
 
   const handleMicTap = () => {
