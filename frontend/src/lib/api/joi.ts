@@ -46,6 +46,24 @@ export async function sendChat(
   return res.json() as Promise<ChatResponse>;
 }
 
+export interface VoiceFeedItem {
+  id: number;
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface VoiceFeedResponse {
+  items: VoiceFeedItem[];
+  next: number;
+}
+
+/** Spoken commands and replies from JOI's microphone, newer than `after`. */
+export async function fetchVoiceFeed(after: number): Promise<VoiceFeedResponse> {
+  const res = await fetch(`${API}/voice/feed?after=${after}`);
+  if (!res.ok) throw new Error(`Voice feed failed: ${res.status}`);
+  return res.json() as Promise<VoiceFeedResponse>;
+}
+
 export async function fetchMoods(): Promise<MoodsResponse> {
   const res = await fetch(`${API}/moods`);
   if (!res.ok) throw new Error(`Moods request failed: ${res.status}`);

@@ -11,12 +11,17 @@ export default defineConfig({
   },
   vite: {
     server: {
+      // Pin the dev server port. Without this, the Lovable config picks 8080
+      // and ignores the --port flag that run.py passes.
+      host: "127.0.0.1",
+      port: Number(process.env.JOI_FRONTEND_PORT ?? 5173),
+      strictPort: true,
       proxy: {
-        // In dev, /api/** → FastAPI backend (avoids CORS entirely in the browser)
+        // In dev, /api/** → FastAPI backend (avoids CORS entirely in the browser).
+        // The path is forwarded unchanged: the backend serves /api/chat etc.
         "/api": {
-          target: process.env.VITE_API_URL ?? "http://localhost:8000",
+          target: process.env.JOI_BACKEND_URL ?? "http://127.0.0.1:8000",
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ""),
         },
       },
     },

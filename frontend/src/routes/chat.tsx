@@ -6,7 +6,7 @@ import { AnimatedJoi } from "@/components/joi/AnimatedJoi";
 import { EmotionEffects } from "@/components/joi/EmotionEffects";
 import { SparkleField } from "@/components/joi/SparkleField";
 import { startVoiceCapture, blendToneEmotion, type VoiceHandle } from "@/lib/voice";
-import { sendChat, fetchMoods, playAudioB64 } from "@/lib/api/joi";
+import { sendChat, fetchMoods, fetchVoiceFeed, playAudioB64 } from "@/lib/api/joi";
 
 export const Route = createFileRoute("/chat")({
   ssr: false,
@@ -123,6 +123,35 @@ function ChatPage() {
       if (idleTimer.current) clearTimeout(idleTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Commands spoken to JOI's microphone (and its replies) appear in the chat
+  const voiceCursor = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    const timer = setInterval(async () => {
+      try {
+        const { items, next } = await fetchVoiceFeed(voiceCursor.current);
+        if (!alive) return;
+        voiceCursor.current = next;
+        if (items.length === 0) return;
+        setMessages((m) => [
+          ...m,
+          ...items.map((i) => ({
+            id: `voice-${i.id}`,
+            role: (i.role === "user" ? "user" : "joi") as Role,
+            text: i.text,
+            at: new Date(),
+          })),
+        ]);
+      } catch {
+        /* backend not reachable yet; try again on the next tick */
+      }
+    }, 1500);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
   }, []);
 
   const sendMessage = async (text: string, overrideEmotion?: JoiExpression) => {

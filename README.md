@@ -1,4 +1,4 @@
-# JOI-Lite — Justified Operative Interface
+# JOI — Justified Operative Interface
 
 [![Status](https://img.shields.io/badge/status-active_development-blue)]()
 [![Python](https://img.shields.io/badge/python-3.13%20%7C%203.14-blue)]()
@@ -6,9 +6,16 @@
 
 **A voice-enabled, memory-driven AI companion with adaptive personality, live emotion expression, and a modern React frontend.**
 
----
+- **Chat UI** (React + TanStack Start) with the JOI mascot and nine personality modes.
+- **Desktop control**: open apps and URLs, search Google/Bing/DuckDuckGo, YouTube and Wikipedia
+  (opens Chrome), list and focus windows, keyboard and mouse, clipboard, processes, files, power.
+- **Permission gate**: camera, microphone, screenshots, sensors, window monitoring, USB, shell,
+  file changes, closing programs and power actions all ask first. Replies: `allow`, `allow for this session`, `deny`.
+- **Voice**: JOI's cloud voice via ElevenLabs (optional) and a microphone mode where you say "JOI, ..."
+- **Audit log**: every tool run is recorded in `~/.joi/audit.log` (argument names only, never content).
+- **Web search** (optional, Serper).
 
-## Overview
+## Quick start
 
 JOI-Lite is an advanced AI assistant that combines conversational intelligence, persistent semantic memory, and voice interaction into a unified system. Unlike traditional chatbots, JOI is designed to simulate continuity, emotional awareness, and adaptive behavior across sessions.
 
@@ -30,7 +37,7 @@ The system consists of two independent parts that run side by side:
 - CORS configured for local dev and production
 - Full Python 3.13 and 3.14 compatibility notes
 
----
+One file controls everything. Only the first key is required for chat.
 
 ## Project Structure
 
@@ -73,7 +80,7 @@ JOI-lite-v2/
     └── requirements.txt
 ```
 
----
+## Optional features
 
 ## Prerequisites
 
@@ -92,7 +99,7 @@ You will also need API keys for:
 | [ElevenLabs](https://elevenlabs.io) | No | Voice audio |
 | [Serper](https://serper.dev) | No | Web search tool |
 
----
+`run.py` reports which optional features are off at startup.
 
 ## 1 — Environment Setup
 
@@ -106,7 +113,9 @@ SERPER_API_KEY=your_serper_key_here
 
 Leave `ELEVENLABS_API_KEY` and `SERPER_API_KEY` blank or remove them if you don't have those keys — JOI will still work, just without voice audio and web search.
 
----
+| Runs without asking | Asks first |
+|---|---|
+| Open apps and URLs, YouTube, web and Wikipedia search, list and focus windows, system stats, read and list files, web search, USB name scan | Camera, microphone, screenshots, sensors, window-switch logging, clipboard, USB device access, keyboard and mouse, shell commands, file write and delete, closing programs, power actions |
 
 ## 2 — Backend Setup
 
@@ -251,7 +260,7 @@ Then open: **`http://localhost:3000/chat`**
 | Audio does not play | Normal without `ELEVENLABS_API_KEY` — text responses still work |
 | Port 3000 already in use | Vite picks the next free port automatically — use the URL it prints |
 
----
+## Troubleshooting
 
 ## Architecture
 
